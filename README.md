@@ -4,7 +4,7 @@
 
 ([API Docs])
 
-> **TODO:** Write up an interesting description.
+An incremental port of [jakogut/tinyvm][tinyvm] to Rust.
 
 ## License
 
@@ -25,3 +25,4 @@ license, shall be dual licensed as above, without any additional terms or
 conditions.
 
 [API Docs]: https://michael-f-bryan.github.io/tinyvm-rs
+[tinyvm]: https://github.com/jakogut/tinyvm
