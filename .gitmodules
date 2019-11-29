@@ -1,0 +1,3 @@
+[submodule "vendor/tinyvm"]
+	path = vendor/tinyvm
+	url = https://github.com/jakogut/tinyvm
