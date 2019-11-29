@@ -1,4 +1,3 @@
-#[test]
-fn it_works() {
-    unimplemented!("TODO: Implement this");
-}
+//! A Rust port of [jakogut/tinyvm][tinyvm].
+//!
+//! [tinyvm]: https://github.com/jakogut/tinyvm
