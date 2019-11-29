@@ -1,1 +1,1 @@
-initSidebarItems({"mod":[["ffi",""]]});
+initSidebarItems({"fn":[["tvm_htab_add",""],["tvm_htab_add_ref",""],["tvm_htab_create",""],["tvm_htab_destroy",""],["tvm_htab_find",""],["tvm_htab_find_ref",""]],"mod":[["ffi",""]],"struct":[["HashTable",""]]});

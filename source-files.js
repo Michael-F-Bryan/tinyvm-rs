@@ -1,3 +1,3 @@
 var N = null;var sourcesIndex = {};
-sourcesIndex["tinyvm"] = {"name":"","dirs":[],"files":["ffi.rs","lib.rs"]};
+sourcesIndex["tinyvm"] = {"name":"","dirs":[],"files":["ffi.rs","htab.rs","lib.rs"]};
 createSourceSidebar();
