@@ -5,7 +5,7 @@ cache: cargo
 rust:
   - 1.34.0
 
-script: 
+script:
   - cargo build --verbose
   - cargo test --verbose
   - cargo doc --verbose
@@ -18,8 +18,12 @@ before_deploy:
 deploy:
   provider: pages
   skip_cleanup: true
-  github_token: $GITHUB_TOKEN 
+  github_token: $GITHUB_TOKEN
   keep_history: true
   local_dir: public
   on:
     branch: master
+
+env:
+  global:
+    secure: GxASzsS3TH4/i7CWKw+VzBhtrzJCukwJ0bYiSDnoOoaSrPlk1KragRSZW3RI0dbvlOkJRX0ueueTc2lBozjQlGT+DlGs/Iv3Do7s+lbxdQr1Bl9CSE7c2mDTos/jyviTbPigqhiZ5AJhLnX32ttV51bFucO1eHNuvwzLqebSVVREhGyjgPHFM7hTFhiWDvIPIM58DbHWsAab7mP3trUnVKfA41DBZdh7H1KeouQSHWRNAjzFT74uRwKnORAPenAx4+OC1SxsAJX79CIvG/c4D/jNa3Ri3nLTqT1XauW4nccYyIOatLlLpQN0RPD/TsqnbsRk/NqJxXHQIeaGeGYEB45SzHjbjT8J2y1FpYnWSDkMtT7/K3KDnkhaHPAVUFYB9E+9XXekLHWrHv2O8S/5bxZVIWWCLjwLDQe7hXitq0a/dp6XdmUZpfLkQkhwNOpVNIM+mO3rpz6P5ZnIpWvfTSGen0CirGdyOXHLyvG9QSWlB/m/tbCwxrmTyNvZTZbKMBvKViXcyg+M24hi17qO5qnZIZPOwhpezg9ld2TO6xCjDVDn3E2NQ70GrdHT//hL/xhehiYUcm6mpnAFdrsGoD5Gufwqxmzyg7mwCZxsmEY0T7Lyp8JGYwJkyWp7MNzYhOhDry/z0fmmKAkpXVB2DZ6GJxPiRG/JZ9OLVvw0VvM=
