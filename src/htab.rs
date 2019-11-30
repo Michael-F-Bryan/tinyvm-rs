@@ -11,8 +11,7 @@ pub struct HashTable(HashMap<CString, Item>);
 #[derive(Debug, Clone, PartialEq)]
 struct Item {
     value: c_int,
-    value_ptr: *mut c_void,
-    length: c_int,
+    opaque_value: Vec<u8>,
 }
 
 #[no_mangle]
@@ -44,8 +43,7 @@ pub unsafe extern "C" fn tvm_htab_add(
 
     let item = Item {
         value,
-        value_ptr: ptr::null_mut(),
-        length: 0,
+        opaque_value: Vec::new(),
     };
 
     hashtable.0.insert(key, item);
@@ -66,9 +64,16 @@ pub unsafe extern "C" fn tvm_htab_add_ref(
     let hashtable = &mut *htab;
     let key = CStr::from_ptr(key).to_owned();
 
+    // we need to create a copy of the value
+    let opaque_value = if value_ptr.is_null() {
+        Vec::new()
+    } else {
+        std::slice::from_raw_parts(value_ptr as *mut u8, length as usize)
+            .to_owned()
+    };
+
     let item = Item {
-        value_ptr,
-        length,
+        opaque_value,
         value: 0,
     };
 
@@ -100,7 +105,9 @@ pub unsafe extern "C" fn tvm_htab_find_ref(
     let key = CStr::from_ptr(key);
 
     match hashtable.0.get(key) {
-        Some(item) => item.value_ptr as *mut c_char,
+        Some(item) => {
+            item.opaque_value.as_ptr() as *mut c_char
+        },
         None => ptr::null_mut(),
     }
 }
