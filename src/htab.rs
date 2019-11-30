@@ -10,7 +10,15 @@ pub struct HashTable(HashMap<CString, Item>);
 
 #[derive(Debug, Clone, PartialEq)]
 struct Item {
+    /// An integer value.
     value: c_int,
+    /// An opaque value used with [`tvm_htab_add_ref()`].
+    ///
+    /// # Safety
+    ///
+    /// Storing the contents of a `void *` in a `Vec<u8>` *would* normally
+    /// result in alignment issues, but we've got access to the `libtvm` source
+    /// code and know it will only ever store `char *` strings.
     opaque_value: Vec<u8>,
 }
 
@@ -64,7 +72,7 @@ pub unsafe extern "C" fn tvm_htab_add_ref(
     let hashtable = &mut *htab;
     let key = CStr::from_ptr(key).to_owned();
 
-    // we need to create a copy of the value
+    // we need to create an owned copy of the value
     let opaque_value = if value_ptr.is_null() {
         Vec::new()
     } else {
@@ -105,9 +113,7 @@ pub unsafe extern "C" fn tvm_htab_find_ref(
     let key = CStr::from_ptr(key);
 
     match hashtable.0.get(key) {
-        Some(item) => {
-            item.opaque_value.as_ptr() as *mut c_char
-        },
+        Some(item) => item.opaque_value.as_ptr() as *mut c_char,
         None => ptr::null_mut(),
     }
 }
