@@ -51,10 +51,7 @@ impl Item {
             }
         };
 
-        Item {
-            opaque_value,
-            value: 0,
-        }
+        Item::opaque(opaque_value)
     }
 
     pub(crate) fn opaque_value(&self) -> &[u8] { &self.opaque_value }
