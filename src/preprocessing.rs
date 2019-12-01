@@ -172,6 +172,47 @@ mod tests {
     }
 
     #[test]
+    fn define_without_key_and_value() {
+        let src = String::from("%define\n");
+        let mut hashtable = HashTable::default();
+
+        let err = process_defines(src.clone(), &mut hashtable).unwrap_err();
+
+        match err {
+            PreprocessingError::EmptyDefine => {},
+            other => panic!("Expected EmptyDefine, found {:?}", other),
+        }
+    }
+
+    #[test]
+    fn define_without_value() {
+        let src = String::from("%define key\n");
+        let mut hashtable = HashTable::default();
+
+        let err = process_defines(src.clone(), &mut hashtable).unwrap_err();
+
+        match err {
+            PreprocessingError::DefineWithoutValue(key) => {
+                assert_eq!(key, "key")
+            },
+            other => panic!("Expected DefineWithoutValue, found {:?}", other),
+        }
+    }
+
+    #[test]
+    fn valid_define() {
+        let src = String::from("%define key value\n");
+        let mut hashtable = HashTable::default();
+
+        let _ = process_defines(src.clone(), &mut hashtable).unwrap();
+
+        assert_eq!(hashtable.0.len(), 1);
+        let key = CString::new("key").unwrap();
+        let item = hashtable.0.get(&key).unwrap();
+        assert_eq!(item.opaque_value_str().unwrap(), "value");
+    }
+
+    #[test]
     fn find_all_defines() {
         let src = String::from(
             "%define true 1\nsome random text\n%define FOO_BAR -42\n",
