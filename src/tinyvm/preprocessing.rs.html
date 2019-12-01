@@ -294,6 +294,16 @@
 <span id="294">294</span>
 <span id="295">295</span>
 <span id="296">296</span>
+<span id="297">297</span>
+<span id="298">298</span>
+<span id="299">299</span>
+<span id="300">300</span>
+<span id="301">301</span>
+<span id="302">302</span>
+<span id="303">303</span>
+<span id="304">304</span>
+<span id="305">305</span>
+<span id="306">306</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">htab</span>::{<span class="ident">HashTable</span>, <span class="ident">Item</span>};
 <span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">collections</span>::<span class="ident">hash_map</span>::<span class="ident">Entry</span>, <span class="ident">ffi</span>::<span class="ident">CString</span>, <span class="ident">io</span>::<span class="ident">Error</span> <span class="kw">as</span> <span class="ident">IoError</span>};
@@ -316,69 +326,87 @@
     }
 }
 
-<span class="kw">fn</span> <span class="ident">process_includes</span>(
-    <span class="ident">src</span>: <span class="ident">String</span>,
-) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">String</span>, <span class="ident">usize</span>), <span class="ident">PreprocessingError</span><span class="op">&gt;</span> {
-    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">ix</span>) <span class="op">=</span> <span class="ident">src</span>.<span class="ident">find</span>(<span class="string">&quot;%import&quot;</span>) {
-        <span class="kw">let</span> (<span class="ident">before</span>, <span class="ident">after</span>) <span class="op">=</span> <span class="ident">src</span>.<span class="ident">split_at</span>(<span class="ident">ix</span>);
-        <span class="kw">let</span> <span class="ident">end_of_line</span> <span class="op">=</span> <span class="ident">after</span>.<span class="ident">find</span>(<span class="string">&quot;\n&quot;</span>).<span class="ident">unwrap_or</span>(<span class="ident">after</span>.<span class="ident">len</span>());
-        <span class="kw">let</span> (<span class="ident">line</span>, <span class="ident">rest</span>) <span class="op">=</span> <span class="ident">after</span>.<span class="ident">split_at</span>(<span class="ident">end_of_line</span>);
-
-        <span class="kw">let</span> <span class="ident">included_file</span> <span class="op">=</span> <span class="ident">parse_include_line</span>(<span class="ident">line</span>)<span class="question-mark">?</span>;
-
-        <span class="kw">let</span> <span class="ident">loaded</span> <span class="op">=</span> <span class="ident">std</span>::<span class="ident">fs</span>::<span class="ident">read_to_string</span>(<span class="ident">included_file</span>).<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> {
-            <span class="ident">PreprocessingError</span>::<span class="ident">FailedInclude</span> {
-                <span class="ident">name</span>: <span class="ident">included_file</span>.<span class="ident">to_string</span>(),
-                <span class="ident">inner</span>: <span class="ident">e</span>,
-            }
-        })<span class="question-mark">?</span>;
-
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">buffer</span> <span class="op">=</span> <span class="ident">String</span>::<span class="ident">new</span>();
-        <span class="ident">buffer</span>.<span class="ident">push_str</span>(<span class="ident">before</span>);
-        <span class="ident">buffer</span>.<span class="ident">push_str</span>(<span class="kw-2">&amp;</span><span class="ident">loaded</span>);
-        <span class="ident">buffer</span>.<span class="ident">push_str</span>(<span class="ident">rest</span>);
-
-        <span class="prelude-val">Ok</span>((<span class="ident">buffer</span>, <span class="number">1</span>))
-    } <span class="kw">else</span> {
-        <span class="prelude-val">Ok</span>((<span class="ident">src</span>.<span class="ident">to_string</span>(), <span class="number">0</span>))
-    }
-}
-
-<span class="kw">fn</span> <span class="ident">parse_include_line</span>(<span class="ident">_line</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">PreprocessingError</span><span class="op">&gt;</span> {
-    <span class="macro">unimplemented</span><span class="macro">!</span>()
-}
-
-<span class="kw">fn</span> <span class="ident">process_defines</span>(
+<span class="doccomment">/// Scan through the input string looking for a line starting with some</span>
+<span class="doccomment">/// directive, using a callback to figure out what to replace the directive line</span>
+<span class="doccomment">/// with.</span>
+<span class="kw">fn</span> <span class="ident">process_line_starting_with_directive</span><span class="op">&lt;</span><span class="ident">F</span><span class="op">&gt;</span>(
     <span class="kw-2">mut</span> <span class="ident">src</span>: <span class="ident">String</span>,
-    <span class="ident">defines</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">HashTable</span>,
-) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">String</span>, <span class="ident">usize</span>), <span class="ident">PreprocessingError</span><span class="op">&gt;</span> {
-    <span class="kw">const</span> <span class="ident">TOK_DEFINE</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;%define&quot;</span>;
-
-    <span class="comment">// try to find the first &quot;%define&quot;</span>
-    <span class="kw">let</span> <span class="ident">directive_delimiter</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">src</span>.<span class="ident">find</span>(<span class="ident">TOK_DEFINE</span>) {
+    <span class="ident">directive</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
+    <span class="kw-2">mut</span> <span class="ident">replace_line</span>: <span class="ident">F</span>,
+) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">String</span>, <span class="ident">usize</span>), <span class="ident">PreprocessingError</span><span class="op">&gt;</span>
+<span class="kw">where</span>
+    <span class="ident">F</span>: <span class="ident">FnMut</span>(<span class="kw-2">&amp;</span><span class="ident">str</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">PreprocessingError</span><span class="op">&gt;</span>,
+{
+    <span class="comment">// try to find the first instance of the directive</span>
+    <span class="kw">let</span> <span class="ident">directive_delimiter</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">src</span>.<span class="ident">find</span>(<span class="ident">directive</span>) {
         <span class="prelude-val">Some</span>(<span class="ident">ix</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">ix</span>,
         <span class="prelude-val">None</span> <span class="op">=</span><span class="op">&gt;</span> <span class="kw">return</span> <span class="prelude-val">Ok</span>((<span class="ident">src</span>, <span class="number">0</span>)),
     };
 
-    <span class="comment">// find the span from %define to the end of the line</span>
-    <span class="kw">let</span> <span class="ident">begin</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">src</span>[<span class="ident">directive_delimiter</span>..];
-    <span class="kw">let</span> <span class="ident">end</span> <span class="op">=</span> <span class="ident">begin</span>.<span class="ident">find</span>(<span class="string">&#39;\n&#39;</span>).<span class="ident">unwrap_or</span>(<span class="ident">begin</span>.<span class="ident">len</span>());
+    <span class="comment">// calculate the span from the directive to the end of the line</span>
+    <span class="kw">let</span> <span class="ident">end_ix</span> <span class="op">=</span> <span class="ident">src</span>[<span class="ident">directive_delimiter</span>..]
+        .<span class="ident">find</span>(<span class="string">&#39;\n&#39;</span>)
+        .<span class="ident">map</span>(<span class="op">|</span><span class="ident">ix</span><span class="op">|</span> <span class="ident">ix</span> <span class="op">+</span> <span class="ident">directive_delimiter</span>)
+        .<span class="ident">unwrap_or</span>(<span class="ident">src</span>.<span class="ident">len</span>());
 
-    <span class="kw">let</span> <span class="ident">define_line</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">begin</span>[..<span class="ident">end</span>];
-    <span class="kw">let</span> <span class="ident">rest_of_define_line</span> <span class="op">=</span> <span class="ident">define_line</span>[<span class="ident">TOK_DEFINE</span>.<span class="ident">len</span>()..].<span class="ident">trim</span>();
+    <span class="comment">// the rest of the line after the directive</span>
+    <span class="kw">let</span> <span class="ident">directive_line</span> <span class="op">=</span>
+        <span class="ident">src</span>[<span class="ident">directive_delimiter</span> <span class="op">+</span> <span class="ident">directive</span>.<span class="ident">len</span>()..<span class="ident">end_ix</span>].<span class="ident">trim</span>();
 
-    <span class="kw">if</span> <span class="ident">rest_of_define_line</span>.<span class="ident">is_empty</span>() {
+    <span class="comment">// use the callback to figure out what we should replace the line with</span>
+    <span class="kw">let</span> <span class="ident">replacement</span> <span class="op">=</span> <span class="ident">replace_line</span>(<span class="ident">directive_line</span>)<span class="question-mark">?</span>;
+
+    <span class="comment">// remove the original line</span>
+    <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">src</span>.<span class="ident">drain</span>(<span class="ident">directive_delimiter</span>..<span class="ident">end_ix</span>);
+    <span class="comment">// then insert our replacement</span>
+    <span class="ident">src</span>.<span class="ident">insert_str</span>(<span class="ident">directive_delimiter</span>, <span class="kw-2">&amp;</span><span class="ident">replacement</span>);
+
+    <span class="prelude-val">Ok</span>((<span class="ident">src</span>, <span class="number">1</span>))
+}
+
+<span class="kw">fn</span> <span class="ident">process_includes</span>(
+    <span class="ident">src</span>: <span class="ident">String</span>,
+) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">String</span>, <span class="ident">usize</span>), <span class="ident">PreprocessingError</span><span class="op">&gt;</span> {
+    <span class="kw">const</span> <span class="ident">TOK_INCLUDE</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;%include&quot;</span>;
+
+    <span class="ident">process_line_starting_with_directive</span>(<span class="ident">src</span>, <span class="ident">TOK_INCLUDE</span>, <span class="op">|</span><span class="ident">line</span><span class="op">|</span> {
+        <span class="ident">std</span>::<span class="ident">fs</span>::<span class="ident">read_to_string</span>(<span class="ident">line</span>).<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> {
+            <span class="ident">PreprocessingError</span>::<span class="ident">FailedInclude</span> {
+                <span class="ident">name</span>: <span class="ident">line</span>.<span class="ident">to_string</span>(),
+                <span class="ident">inner</span>: <span class="ident">e</span>,
+            }
+        })
+    })
+}
+
+<span class="kw">fn</span> <span class="ident">process_defines</span>(
+    <span class="ident">src</span>: <span class="ident">String</span>,
+    <span class="ident">defines</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">HashTable</span>,
+) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">String</span>, <span class="ident">usize</span>), <span class="ident">PreprocessingError</span><span class="op">&gt;</span> {
+    <span class="kw">const</span> <span class="ident">TOK_DEFINE</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;%define&quot;</span>;
+
+    <span class="ident">process_line_starting_with_directive</span>(<span class="ident">src</span>, <span class="ident">TOK_DEFINE</span>, <span class="op">|</span><span class="ident">line</span><span class="op">|</span> {
+        <span class="ident">parse_define</span>(<span class="ident">line</span>, <span class="ident">defines</span>)<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(<span class="ident">String</span>::<span class="ident">new</span>())
+    })
+}
+
+<span class="kw">fn</span> <span class="ident">parse_define</span>(
+    <span class="ident">line</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
+    <span class="ident">defines</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">HashTable</span>,
+) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">PreprocessingError</span><span class="op">&gt;</span> {
+    <span class="kw">if</span> <span class="ident">line</span>.<span class="ident">is_empty</span>() {
         <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">PreprocessingError</span>::<span class="ident">EmptyDefine</span>);
     }
 
     <span class="comment">// The syntax is &quot;%define key value&quot;, so after removing the leading</span>
     <span class="comment">// &quot;%define&quot; everything after the next space is the value</span>
-    <span class="kw">let</span> <span class="ident">first_space</span> <span class="op">=</span> <span class="ident">rest_of_define_line</span>.<span class="ident">find</span>(<span class="string">&#39; &#39;</span>).<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> {
-        <span class="ident">PreprocessingError</span>::<span class="ident">DefineWithoutValue</span>(<span class="ident">rest_of_define_line</span>.<span class="ident">to_string</span>())
+    <span class="kw">let</span> <span class="ident">first_space</span> <span class="op">=</span> <span class="ident">line</span>.<span class="ident">find</span>(<span class="string">&#39; &#39;</span>).<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> {
+        <span class="ident">PreprocessingError</span>::<span class="ident">DefineWithoutValue</span>(<span class="ident">line</span>.<span class="ident">to_string</span>())
     })<span class="question-mark">?</span>;
 
     <span class="comment">// split the rest of the line into key and value</span>
-    <span class="kw">let</span> (<span class="ident">key</span>, <span class="ident">value</span>) <span class="op">=</span> <span class="ident">rest_of_define_line</span>.<span class="ident">split_at</span>(<span class="ident">first_space</span>);
+    <span class="kw">let</span> (<span class="ident">key</span>, <span class="ident">value</span>) <span class="op">=</span> <span class="ident">line</span>.<span class="ident">split_at</span>(<span class="ident">first_space</span>);
     <span class="kw">let</span> <span class="ident">value</span> <span class="op">=</span> <span class="ident">value</span>.<span class="ident">trim</span>();
 
     <span class="kw">match</span> <span class="ident">defines</span>.<span class="number">0</span>.<span class="ident">entry</span>(
@@ -403,18 +431,7 @@
         },
     }
 
-    <span class="comment">// we&#39;ve processed the %define line, so remove it from the original source</span>
-    <span class="comment">// text</span>
-    <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">src</span>.<span class="ident">drain</span>(<span class="ident">directive_delimiter</span>..<span class="ident">directive_delimiter</span> <span class="op">+</span> <span class="ident">end</span>);
-
-    <span class="prelude-val">Ok</span>((<span class="ident">src</span>, <span class="number">1</span>))
-}
-
-<span class="kw">fn</span> <span class="ident">_parse_define</span>(
-    <span class="ident">_line</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-    <span class="ident">_defines</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">HashTable</span>,
-) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">PreprocessingError</span><span class="op">&gt;</span> {
-    <span class="macro">unimplemented</span><span class="macro">!</span>()
+    <span class="prelude-val">Ok</span>(())
 }
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
@@ -501,8 +518,11 @@
         <span class="kw">let</span> <span class="ident">src</span> <span class="op">=</span> <span class="ident">String</span>::<span class="ident">from</span>(<span class="string">&quot;%define key value\n&quot;</span>);
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">hashtable</span> <span class="op">=</span> <span class="ident">HashTable</span>::<span class="ident">default</span>();
 
-        <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">process_defines</span>(<span class="ident">src</span>.<span class="ident">clone</span>(), <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">hashtable</span>).<span class="ident">unwrap</span>();
+        <span class="kw">let</span> (<span class="ident">got</span>, <span class="ident">num_defines</span>) <span class="op">=</span>
+            <span class="ident">process_defines</span>(<span class="ident">src</span>.<span class="ident">clone</span>(), <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">hashtable</span>).<span class="ident">unwrap</span>();
 
+        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">got</span>, <span class="string">&quot;\n&quot;</span>);
+        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">num_defines</span>, <span class="number">1</span>);
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">hashtable</span>.<span class="number">0</span>.<span class="ident">len</span>(), <span class="number">1</span>);
         <span class="kw">let</span> <span class="ident">key</span> <span class="op">=</span> <span class="ident">CString</span>::<span class="ident">new</span>(<span class="string">&quot;key&quot;</span>).<span class="ident">unwrap</span>();
         <span class="kw">let</span> <span class="ident">item</span> <span class="op">=</span> <span class="ident">hashtable</span>.<span class="number">0</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">key</span>).<span class="ident">unwrap</span>();
