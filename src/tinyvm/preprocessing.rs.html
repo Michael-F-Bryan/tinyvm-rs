@@ -304,9 +304,103 @@
 <span id="304">304</span>
 <span id="305">305</span>
 <span id="306">306</span>
+<span id="307">307</span>
+<span id="308">308</span>
+<span id="309">309</span>
+<span id="310">310</span>
+<span id="311">311</span>
+<span id="312">312</span>
+<span id="313">313</span>
+<span id="314">314</span>
+<span id="315">315</span>
+<span id="316">316</span>
+<span id="317">317</span>
+<span id="318">318</span>
+<span id="319">319</span>
+<span id="320">320</span>
+<span id="321">321</span>
+<span id="322">322</span>
+<span id="323">323</span>
+<span id="324">324</span>
+<span id="325">325</span>
+<span id="326">326</span>
+<span id="327">327</span>
+<span id="328">328</span>
+<span id="329">329</span>
+<span id="330">330</span>
+<span id="331">331</span>
+<span id="332">332</span>
+<span id="333">333</span>
+<span id="334">334</span>
+<span id="335">335</span>
+<span id="336">336</span>
+<span id="337">337</span>
+<span id="338">338</span>
+<span id="339">339</span>
+<span id="340">340</span>
+<span id="341">341</span>
+<span id="342">342</span>
+<span id="343">343</span>
+<span id="344">344</span>
+<span id="345">345</span>
+<span id="346">346</span>
+<span id="347">347</span>
+<span id="348">348</span>
+<span id="349">349</span>
+<span id="350">350</span>
+<span id="351">351</span>
+<span id="352">352</span>
+<span id="353">353</span>
 </pre><div class="example-wrap"><pre class="rust ">
-<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">htab</span>::{<span class="ident">HashTable</span>, <span class="ident">Item</span>};
-<span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">collections</span>::<span class="ident">hash_map</span>::<span class="ident">Entry</span>, <span class="ident">ffi</span>::<span class="ident">CString</span>, <span class="ident">io</span>::<span class="ident">Error</span> <span class="kw">as</span> <span class="ident">IoError</span>};
+<span class="kw">use</span> <span class="kw">crate</span>::{
+    <span class="ident">ffi</span>::<span class="ident">tvm_htab_ctx</span>,
+    <span class="ident">htab</span>::{<span class="ident">HashTable</span>, <span class="ident">Item</span>},
+};
+<span class="kw">use</span> <span class="ident">std</span>::{
+    <span class="ident">collections</span>::<span class="ident">hash_map</span>::<span class="ident">Entry</span>,
+    <span class="ident">ffi</span>::{<span class="ident">CStr</span>, <span class="ident">CString</span>},
+    <span class="ident">io</span>::<span class="ident">Error</span> <span class="kw">as</span> <span class="ident">IoError</span>,
+    <span class="ident">os</span>::<span class="ident">raw</span>::{<span class="ident">c_char</span>, <span class="ident">c_int</span>},
+};
+
+<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
+<span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">tvm_preprocess</span>(
+    <span class="ident">src</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">c_char</span>,
+    <span class="ident">src_len</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">c_int</span>,
+    <span class="ident">defines</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">tvm_htab_ctx</span>,
+) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">c_int</span> {
+    <span class="kw">if</span> <span class="ident">src</span>.<span class="ident">is_null</span>() <span class="op">|</span><span class="op">|</span> <span class="ident">src_len</span>.<span class="ident">is_null</span>() <span class="op">|</span><span class="op">|</span> <span class="ident">defines</span>.<span class="ident">is_null</span>() {
+        <span class="kw">return</span> <span class="op">-</span><span class="number">1</span>;
+    }
+
+    <span class="comment">// Safety: This assumes the tvm_htab_ctx is actually our ported HashTable</span>
+    <span class="kw">let</span> <span class="ident">defines</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="kw-2">*</span>(<span class="ident">defines</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">HashTable</span>);
+
+    <span class="comment">// convert the input string to an owned Rust string so it can be</span>
+    <span class="comment">// preprocessed</span>
+    <span class="kw">let</span> <span class="ident">rust_src</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">CStr</span>::<span class="ident">from_ptr</span>(<span class="kw-2">*</span><span class="ident">src</span>).<span class="ident">to_str</span>() {
+        <span class="prelude-val">Ok</span>(<span class="ident">s</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">s</span>.<span class="ident">to_string</span>(),
+        <span class="comment">// just error out if it&#39;s not valid UTF-8</span>
+        <span class="prelude-val">Err</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw">return</span> <span class="op">-</span><span class="number">1</span>,
+    };
+
+    <span class="kw">match</span> <span class="ident">preprocess</span>(<span class="ident">rust_src</span>, <span class="ident">defines</span>) {
+        <span class="prelude-val">Ok</span>(<span class="ident">s</span>) <span class="op">=</span><span class="op">&gt;</span> {
+            <span class="kw">let</span> <span class="ident">preprocessed</span> <span class="op">=</span> <span class="ident">CString</span>::<span class="ident">new</span>(<span class="ident">s</span>).<span class="ident">unwrap</span>();
+            <span class="comment">// create a copy of the preprocessed string that can be free&#39;d by C</span>
+            <span class="comment">// and use the output arguments to pass it to the caller</span>
+            <span class="kw-2">*</span><span class="ident">src</span> <span class="op">=</span> <span class="ident">libc</span>::<span class="ident">strdup</span>(<span class="ident">preprocessed</span>.<span class="ident">as_ptr</span>());
+            <span class="comment">// the original C implementation didn&#39;t add a null terminator to the</span>
+            <span class="comment">// preprocessed string, so we&#39;re required to set the length as well.</span>
+            <span class="kw-2">*</span><span class="ident">src_len</span> <span class="op">=</span> <span class="ident">libc</span>::<span class="ident">strlen</span>(<span class="kw-2">*</span><span class="ident">src</span>) <span class="kw">as</span> <span class="ident">c_int</span>;
+
+            <span class="comment">// returning 0 indicates success</span>
+            <span class="number">0</span>
+        },
+        <span class="comment">// tell the caller &quot;an error occurred&quot;</span>
+        <span class="prelude-val">Err</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="op">-</span><span class="number">1</span>,
+    }
+}
 
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">preprocess</span>(
     <span class="ident">src</span>: <span class="ident">String</span>,
@@ -573,7 +667,7 @@
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">include_another_file</span>() {
         <span class="kw">const</span> <span class="ident">TOP_LEVEL</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;first line\n%include nested\nlast line\n&quot;</span>;
-        <span class="kw">const</span> <span class="ident">NESTED</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;nested\n&quot;</span>;
+        <span class="kw">const</span> <span class="ident">NESTED</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;nested&quot;</span>;
 
         <span class="comment">// the preprocessor imports files from the filesystem, so we need to</span>
         <span class="comment">// copy NESTED to a temporary location</span>
