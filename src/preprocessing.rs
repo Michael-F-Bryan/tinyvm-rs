@@ -1,3 +1,140 @@
+use crate::htab::{HashTable, Item};
+use std::{collections::hash_map::Entry, ffi::CString, io::Error as IoError};
+
+pub fn preprocess(
+    src: String,
+    defines: &mut HashTable,
+) -> Result<String, PreprocessingError> {
+    let mut src = src;
+
+    loop {
+        let (modified, num_includes) = process_includes(src)?;
+        let (modified, num_defines) = process_defines(modified, defines)?;
+
+        if num_includes + num_defines == 0 {
+            return Ok(modified);
+        }
+
+        src = modified;
+    }
+}
+
+fn process_includes(
+    src: String,
+) -> Result<(String, usize), PreprocessingError> {
+    if let Some(ix) = src.find("%import") {
+        let (before, after) = src.split_at(ix);
+        let end_of_line = after.find("\n").unwrap_or(after.len());
+        let (line, rest) = after.split_at(end_of_line);
+
+        let included_file = parse_include_line(line)?;
+
+        let loaded = std::fs::read_to_string(included_file).map_err(|e| {
+            PreprocessingError::FailedInclude {
+                name: included_file.to_string(),
+                inner: e,
+            }
+        })?;
+
+        let mut buffer = String::new();
+        buffer.push_str(before);
+        buffer.push_str(&loaded);
+        buffer.push_str(rest);
+
+        Ok((buffer, 1))
+    } else {
+        Ok((src.to_string(), 0))
+    }
+}
+
+fn parse_include_line(_line: &str) -> Result<&str, PreprocessingError> {
+    unimplemented!()
+}
+
+fn process_defines(
+    mut src: String,
+    defines: &mut HashTable,
+) -> Result<(String, usize), PreprocessingError> {
+    const TOK_DEFINE: &str = "%define";
+
+    // try to find the first "%define"
+    let directive_delimiter = match src.find(TOK_DEFINE) {
+        Some(ix) => ix,
+        None => return Ok((src, 0)),
+    };
+
+    // find the span from %define to the end of the line
+    let begin = &src[directive_delimiter..];
+    let end = begin.find('\n').unwrap_or(begin.len());
+
+    let define_line = &begin[..end];
+    let rest_of_define_line = define_line[TOK_DEFINE.len()..].trim();
+
+    if rest_of_define_line.is_empty() {
+        return Err(PreprocessingError::EmptyDefine);
+    }
+
+    // The syntax is "%define key value", so after removing the leading
+    // "%define" everything after the next space is the value
+    let first_space = rest_of_define_line.find(' ').ok_or_else(|| {
+        PreprocessingError::DefineWithoutValue(rest_of_define_line.to_string())
+    })?;
+
+    // split the rest of the line into key and value
+    let (key, value) = rest_of_define_line.split_at(first_space);
+    let value = value.trim();
+
+    match defines.0.entry(
+        CString::new(key).expect("The text shouldn't contain null bytes"),
+    ) {
+        // the happy case, this symbol hasn't been defined before so we can just
+        // insert it.
+        Entry::Vacant(vacant) => {
+            vacant.insert(Item::opaque(value));
+        },
+        // looks like this key has already been defined, report an error
+        Entry::Occupied(occupied) => {
+            return Err(PreprocessingError::DuplicateDefine {
+                name: key.to_string(),
+                original_value: occupied
+                    .get()
+                    .opaque_value_str()
+                    .unwrap_or("<invalid>")
+                    .to_string(),
+                new_value: value.to_string(),
+            });
+        },
+    }
+
+    // we've processed the %define line, so remove it from the original source
+    // text
+    let _ = src.drain(directive_delimiter..directive_delimiter + end);
+
+    Ok((src, 1))
+}
+
+fn _parse_define(
+    _line: &str,
+    _defines: &mut HashTable,
+) -> Result<(), PreprocessingError> {
+    unimplemented!()
+}
+
+#[derive(Debug)]
+pub enum PreprocessingError {
+    FailedInclude {
+        name: String,
+        inner: IoError,
+    },
+    DuplicateDefine {
+        name: String,
+        original_value: String,
+        new_value: String,
+    },
+    EmptyDefine,
+    DefineWithoutValue(String),
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -10,8 +147,35 @@ mod tests {
     use tempfile::NamedTempFile;
 
     #[test]
+    fn empty_string() {
+        let src = String::from("");
+        let mut hashtable = HashTable::default();
+
+        let (got, replacements) = process_defines(src, &mut hashtable).unwrap();
+
+        assert!(got.is_empty());
+        assert_eq!(replacements, 0);
+        assert!(hashtable.0.is_empty());
+    }
+
+    #[test]
+    fn false_percent() {
+        let src = String::from("this string contains a % symbol");
+        let mut hashtable = HashTable::default();
+
+        let (got, replacements) =
+            process_defines(src.clone(), &mut hashtable).unwrap();
+
+        assert_eq!(got, src);
+        assert_eq!(replacements, 0);
+        assert!(hashtable.0.is_empty());
+    }
+
+    #[test]
     fn find_all_defines() {
-        let src = "%define true 1\nsome random text\n%define FOO_BAR -42\n";
+        let src = String::from(
+            "%define true 1\nsome random text\n%define FOO_BAR -42\n",
+        );
         let original_length = src.len();
         let src = CString::new(src).unwrap();
 
