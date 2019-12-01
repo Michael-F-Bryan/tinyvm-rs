@@ -19,10 +19,14 @@ pub unsafe extern "C" fn tvm_preprocess(
         return -1;
     }
 
+    // Safety: This assumes the tvm_htab_ctx is actually our ported HashTable
     let defines = &mut *(defines as *mut HashTable);
 
+    // convert the input string to an owned Rust string so it can be
+    // preprocessed
     let rust_src = match CStr::from_ptr(*src).to_str() {
         Ok(s) => s.to_string(),
+        // just error out if it's not valid UTF-8
         Err(_) => return -1,
     };
 
@@ -30,10 +34,16 @@ pub unsafe extern "C" fn tvm_preprocess(
         Ok(s) => {
             let preprocessed = CString::new(s).unwrap();
             // create a copy of the preprocessed string that can be free'd by C
+            // and use the output arguments to pass it to the caller
             *src = libc::strdup(preprocessed.as_ptr());
+            // the original C implementation didn't add a null terminator to the
+            // preprocessed string, so we're required to set the length as well.
             *src_len = libc::strlen(*src) as c_int;
+
+            // returning 0 indicates success
             0
         },
+        // tell the caller "an error occurred"
         Err(_) => -1,
     }
 }
