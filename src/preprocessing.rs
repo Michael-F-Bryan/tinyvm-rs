@@ -1,5 +1,42 @@
-use crate::htab::{HashTable, Item};
-use std::{collections::hash_map::Entry, ffi::CString, io::Error as IoError};
+use crate::{
+    ffi::tvm_htab_ctx,
+    htab::{HashTable, Item},
+};
+use std::{
+    collections::hash_map::Entry,
+    ffi::{CStr, CString},
+    io::Error as IoError,
+    os::raw::{c_char, c_int},
+};
+
+#[no_mangle]
+pub unsafe extern "C" fn tvm_preprocess(
+    src: *mut *mut c_char,
+    src_len: *mut c_int,
+    defines: *mut tvm_htab_ctx,
+) -> c_int {
+    if src.is_null() || src_len.is_null() || defines.is_null() {
+        return -1;
+    }
+
+    let defines = &mut *(defines as *mut HashTable);
+
+    let rust_src = match CStr::from_ptr(*src).to_str() {
+        Ok(s) => s.to_string(),
+        Err(_) => return -1,
+    };
+
+    match preprocess(rust_src, defines) {
+        Ok(s) => {
+            let preprocessed = CString::new(s).unwrap();
+            // create a copy of the preprocessed string that can be free'd by C
+            *src = libc::strdup(preprocessed.as_ptr());
+            *src_len = libc::strlen(*src) as c_int;
+            0
+        },
+        Err(_) => -1,
+    }
+}
 
 pub fn preprocess(
     src: String,
@@ -266,7 +303,7 @@ mod tests {
     #[test]
     fn include_another_file() {
         const TOP_LEVEL: &str = "first line\n%include nested\nlast line\n";
-        const NESTED: &str = "nested\n";
+        const NESTED: &str = "nested";
 
         // the preprocessor imports files from the filesystem, so we need to
         // copy NESTED to a temporary location
